@@ -149,6 +149,24 @@ button{font-family:var(--fn);cursor:pointer}input,textarea,select{font-family:va
 .mob-empty{text-align:center;color:var(--t3);padding:40px 20px;font-size:14px;line-height:1.8}
 .mob-ld textarea{width:100%;padding:12px;border-radius:10px;background:var(--cd);border:1px solid var(--bd);color:var(--t1);font-size:12px;font-family:var(--mo);min-height:80px;outline:none;margin-bottom:8px}
 .mob-ld button{width:100%;padding:12px;border-radius:10px;background:var(--cd);border:1px solid var(--bd);color:var(--t2);font-size:13px;font-weight:600}
+.timer-bar{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(135deg,#1b4332,#081c15);border-top:2px solid var(--grn);padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:100;cursor:pointer}
+.timer-bar .tb-info{flex:1;font-family:var(--mo)}
+.timer-bar .tb-phase{font-size:11px;color:var(--grn);text-transform:uppercase;letter-spacing:2px;font-weight:700}
+.timer-bar .tb-time{font-size:24px;font-weight:900;color:#fff}
+.timer-bar .tb-btn{padding:10px 20px;border-radius:10px;background:var(--grn);border:none;color:#000;font-size:13px;font-weight:700;cursor:pointer}
+.mob-ex-edit{cursor:pointer;position:relative}
+.mob-ex-edit:active{background:rgba(255,255,255,.04);border-radius:8px}
+.mob-ex-acts{display:flex;gap:6px;margin-left:auto;flex-shrink:0}
+.mob-ex-acts button{width:28px;height:28px;border-radius:6px;border:1px solid var(--bd);background:var(--cd);color:var(--t2);font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.mob-ex-acts button:active{background:rgba(255,255,255,.08)}
+.mob-ex-acts button.del{color:var(--red)}
+.mob-play{width:32px;height:32px;border-radius:8px;border:1px solid var(--grn);background:rgba(52,211,153,.08);color:var(--grn);font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.mob-play:active{background:rgba(52,211,153,.2)}
+.swap-list{max-height:50vh;overflow-y:auto;margin:8px 0}
+.swap-item{display:flex;align-items:center;gap:8px;padding:10px;border-radius:8px;cursor:pointer;border:1px solid transparent;margin-bottom:2px}
+.swap-item:active,.swap-item:hover{background:rgba(255,255,255,.04);border-color:var(--bd)}
+.swap-sr{width:100%;padding:9px 11px;border-radius:8px;background:var(--cd);border:1px solid var(--bd);color:var(--t1);font-size:13px;outline:none;margin-bottom:8px}
+.swap-sr:focus{border-color:var(--grn)}
 
 /* TIMER */
 .timer{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;transition:background .5s;position:fixed;inset:0;z-index:300;user-select:none;font-family:var(--mo)}
@@ -279,7 +297,8 @@ function totalDur(blks){
 let S={screen:isMob?'mobile':'builder',sName:'New Session',targetTime:45,blocks:[],
   libSearch:'',libFilter:'all',modal:null,noteBI:-1,noteEI:-1,
   ceData:{name:'',cats:[],note:''},
-  phase:'',bI:0,eI:0,rI:0,tL:0,paused:false,soundMode:'all',
+  phase:'',bI:0,eI:0,rI:0,tL:0,paused:false,soundMode:'all',timerRunning:false,
+  mobEdit:null,
   mobSession:null,mobC:{}};
 
 function loadHash(){
@@ -305,11 +324,16 @@ function curBlocks(){return S.mobSession?.blocks||S.blocks}
 function startTimer(){
   const blks=curBlocks();
   if(!blks.some(b=>b.type==='stations'||b.exercises.length))return;
-  ga();S.screen='timer';S.bI=0;S.eI=0;S.rI=0;S.paused=false;S.phase='ready';S.tL=5;
+  ga();S.screen='timer';S.bI=0;S.eI=0;S.rI=0;S.paused=false;S.phase='ready';S.tL=5;S.timerRunning=true;
   clearInterval(tInt);tInt=setInterval(tick,1e3);
   try{navigator.wakeLock?.request('screen')}catch(e){}render();
 }
-function tick(){if(S.paused)return;S.tL--;if(S.tL>0&&S.tL<=3)sn.tick();if(S.tL<=0)advance();render()}
+function tick(){if(S.paused)return;S.tL--;if(S.tL>0&&S.tL<=3)sn.tick();if(S.tL<=0)advance();
+  if(S.screen==='mobile'&&S.timerRunning){
+    const tb=document.querySelector('.tb-time');if(tb)tb.textContent=fmts(S.tL);
+    const tp=document.querySelector('.tb-phase');if(tp)tp.textContent=S.phase;
+  }else render();
+}
 
 function advance(){
   const blks=curBlocks(),b=blks[S.bI];
@@ -357,9 +381,11 @@ function advance(){
     sn.go();S.phase='work';S.tL=isSt2?b2.workTime:(b2.exercises[0]?.duration||b2.workTime);return;
   }
 }
-function finish(){sn.done();S.phase='done';S.tL=0;clearInterval(tInt)}
-function stopT(){clearInterval(tInt);S.screen=isMob?'mobile':'builder';S.phase='';S.paused=false;render()}
+function finish(){sn.done();S.phase='done';S.tL=0;S.timerRunning=false;clearInterval(tInt);tInt=null;if(S.screen==='mobile')render();else{S.screen=isMob?'mobile':'builder';render()}}
+function stopT(){clearInterval(tInt);tInt=null;S.screen=isMob?'mobile':'builder';S.phase='';S.paused=false;S.timerRunning=false;render()}
 function togPause(){S.paused=!S.paused;render()}
+function minimizeT(){S.screen='mobile';S.timerRunning=true;render()}
+function returnToT(){S.screen='timer';render()}
 function skip(){S.tL=0;advance();render()}
 function showRotateFlash(){
   const el=document.createElement('div');el.className='rot-flash';el.textContent='🔄 ROTATE!';
@@ -417,7 +443,7 @@ function rBuilder(){
     const badge=isSt?`<span class="btbadge" style="background:#eab30820;color:var(--spr)">STATIONS</span>`:`<span class="btbadge" style="background:#22d3ee20;color:var(--car)">HIIT</span>`;
     const dur=blockDur(b)+(b.restAfterBlock||0);
 
-    return`<div class="bcol" data-bci="${bi}"><div class="bch"><span class="bnum" style="background:${col}20;color:${col}">${bi+1}</span><input class="btit" value="${b.name}" data-bn="${bi}">${badge}<span style="font-size:10px;color:var(--t3);margin:0 4px">${fmtd(dur)}</span><div class="bacts">${bi>0?`<button class="bab" data-mv="${bi}" data-d="-1">←</button>`:''}${bi<S.blocks.length-1?`<button class="bab" data-mv="${bi}" data-d="1">→</button>`:''}<button class="bab del" data-db="${bi}">✕</button><button class="bab" data-cloneb="${bi}" title="Clone block">⧉</button></div></div>
+    return`<div class="bcol" data-bci="${bi}"><div class="bch" style="flex-wrap:wrap"><div style="display:flex;align-items:center;gap:6px;width:100%"><span class="bnum" style="background:${col}20;color:${col}">${bi+1}</span>${badge}<span style="font-size:10px;color:var(--t3);margin-left:auto">${fmtd(dur)}</span><div class="bacts">${bi>0?`<button class="bab" data-mv="${bi}" data-d="-1">←</button>`:''}${bi<S.blocks.length-1?`<button class="bab" data-mv="${bi}" data-d="1">→</button>`:''}<button class="bab del" data-db="${bi}">✕</button><button class="bab" data-cloneb="${bi}" title="Clone block">⧉</button></div></div><input class="btit" value="${b.name}" data-bn="${bi}" style="width:100%;margin-top:4px"></div>
     <div class="btype-r"><button class="btype-b ${!isSt?'on':''}" data-bt="${bi}" data-v="hiit">HIIT</button><button class="btype-b ${isSt?'on':''}" data-bt="${bi}" data-v="stations">Stations</button></div>
     ${topSet}<div class="bexs" data-dbi="${bi}">${exHtml}${dz}</div>${botSet}</div>`;
   }).join('');
@@ -449,18 +475,32 @@ function rShareModal(){const url=genShareURL();const siteUrl=location.origin+loc
 // ─── Mobile ───
 function rMobile(){
   const sess=S.mobSession||{n:S.sName,blocks:S.blocks};
-  const has=sess.blocks?.some(b=>b.type==='stations'||b.exercises?.length);
-  if(!has)return`<div class="mob"><div class="mob-hd"><div class="tag">Unbreakable Workout</div><h1>Workout Timer</h1></div><div class="mob-empty">No workout loaded.<br><br>Build on desktop → Share to Mobile<br><br>Or paste data:</div><div class="mob-ld" style="max-width:500px;margin:0 auto"><textarea id="mpaste" placeholder="Paste session data..."></textarea><button id="mload">Load</button></div></div>`;
-  const blks=sess.blocks;const td=totalDur(blks);
+  const blks=sess.blocks||S.blocks;
+  const has=blks?.some(b=>b.type==='stations'||b.exercises?.length);
+  if(!has&&!S.timerRunning)return`<div class="mob"><div class="mob-hd"><div class="tag">Unbreakable Workout</div><h1>Workout Timer</h1></div><div class="mob-empty">No workout loaded.<br><br>Build on desktop → Share to Mobile<br><br>Or paste data:</div><div class="mob-ld" style="max-width:500px;margin:0 auto"><textarea id="mpaste" placeholder="Paste session data..."></textarea><button id="mload">Load</button></div></div>`;
+  const td=totalDur(blks);
   const bhtml=blks.map((b,bi)=>{const col=bcol(bi);const open=!S.mobC[bi];const isSt=b.type==='stations';
     let body='';if(open){
       const info=isSt?`${b.exPerStation||3} exercises · ${b.workTime}s each · ${b.rounds} rotations · ${b.restAfterRound}s rest`:`${b.exercises?.length||0} exercises · ${b.rounds} rounds · ${b.restAfterRound}s rest`;
-      const exs=(b.exercises||[]).map((ex,ei)=>`<div class="mob-ex"><span class="mob-exn" style="background:${pcc(ex.cats)}20;color:${pcc(ex.cats)}">${ei+1}</span><span style="font-size:13px;flex:1">${ex.name}</span><span style="font-size:11px;color:var(--amb);font-family:var(--mo)">${ex.duration||b.workTime}s</span></div>`).join('');
-      body=`<div class="mob-bb"><div class="mob-bi">${info} · ${fmtd(blockDur(b)+(b.restAfterBlock||0))}</div>${exs}</div>`;
+      const exs=(b.exercises||[]).map((ex,ei)=>`<div class="mob-ex mob-ex-edit" data-mbi="${bi}" data-mei="${ei}"><span class="mob-exn" style="background:${pcc(ex.cats)}20;color:${pcc(ex.cats)}">${ei+1}</span><span style="font-size:13px;flex:1">${ex.name}</span><span style="font-size:11px;color:var(--amb);font-family:var(--mo)">${ex.duration||b.workTime}s</span><div class="mob-ex-acts"><button data-mswap="${bi}" data-msei="${ei}">🔄</button><button class="del" data-mdel="${bi}" data-mdei="${ei}">✕</button></div></div>`).join('');
+      const addBtn=`<div style="text-align:center;padding:8px"><button data-madd="${bi}" style="padding:6px 16px;border-radius:8px;border:1px dashed var(--bd);background:transparent;color:var(--t3);font-size:12px;cursor:pointer">+ Add Exercise</button></div>`;
+      body=`<div class="mob-bb"><div class="mob-bi">${info} · ${fmtd(blockDur(b)+(b.restAfterBlock||0))}</div>${exs}${addBtn}</div>`;
     }
-    return`<div class="mob-b"><div class="mob-bh" data-mt="${bi}"><span class="mob-bn" style="background:${col}20;color:${col}">${bi+1}</span><span class="mob-bt">${b.name}</span><span class="mob-bm">${isSt?'🔄':'⚡'} ${fmtd(blockDur(b)+(b.restAfterBlock||0))}</span><span style="color:var(--t3)">${open?'▾':'▸'}</span></div>${body}</div>`;
+    return`<div class="mob-b"><div class="mob-bh" data-mt="${bi}"><span class="mob-bn" style="background:${col}20;color:${col}">${bi+1}</span><span class="mob-bt">${b.name}</span><span class="mob-bm">${isSt?'🔄':'⚡'} ${fmtd(blockDur(b)+(b.restAfterBlock||0))}</span><button class="mob-play" data-mplay="${bi}" title="Start from here">▶</button><span style="color:var(--t3)">${open?'▾':'▸'}</span></div>${body}</div>`;
   }).join('');
-  return`<div class="mob"><div class="mob-hd"><div class="tag">Unbreakable Workout</div><h1>Workout Timer</h1></div><div class="mob-s"><div class="mob-sn">${sess.n||S.sName}</div><div class="mob-sm">${blks.length} blocks · ${fmtd(td)}</div>${bhtml}</div><button class="mob-start" id="mstart">▶ START</button></div>`;
+  const timerBar=S.timerRunning?`<div class="timer-bar" id="tbar"><div class="tb-info"><div class="tb-phase">${S.phase}</div><div class="tb-time">${fmts(S.tL)}</div></div><button class="tb-btn" id="treturn">Return to Timer</button></div>`:'';
+  const startBtn=S.timerRunning?'':` <button class="mob-start" id="mstart">▶ START</button>`;
+  let mdl='';
+  if(S.mobEdit)mdl=rSwapModal();
+  return`<div class="mob" style="${S.timerRunning?'padding-bottom:80px':''}"><div class="mob-hd"><div class="tag">Unbreakable Workout</div><h1>Workout Timer</h1></div><div class="mob-s"><div class="mob-sn">${sess.n||S.sName}</div><div class="mob-sm">${blks.length} blocks · ${fmtd(td)}</div>${bhtml}</div>${startBtn}${timerBar}</div>${mdl}`;
+}
+function rSwapModal(){
+  const{bi,ei,mode}=S.mobEdit;
+  const items=lib.filter(e=>{if(!S.mobEdit.search)return true;return e.name.toLowerCase().includes(S.mobEdit.search.toLowerCase())});
+  const grouped={};items.forEach(e=>{const p=e.cats[0]||'other';if(!grouped[p])grouped[p]=[];grouped[p].push(e)});
+  let lhtml='';for(const[cat,exs]of Object.entries(grouped)){const C=CATS[cat];lhtml+=`<div class="lcat" style="color:${C?.color||'#666'};padding:8px 0 2px">${C?.label||cat}</div>`;exs.forEach(e=>{lhtml+=`<div class="swap-item" data-swp="${e.name}"><span class="ldot" style="background:${pcc(e.cats)}"></span><span style="flex:1;font-size:13px">${e.name}</span></div>`})}
+  const title=mode==='add'?'Add Exercise':'Swap Exercise';
+  return`<div class="mbg" id="mbg"><div class="mdl"><h2>${title}</h2><input class="swap-sr" id="msrch" placeholder="Search exercises..." value="${S.mobEdit.search||''}"><div class="swap-list">${lhtml}</div><button class="mc" id="mclose">Cancel</button></div></div>`;
 }
 
 // ─── Timer ───
@@ -481,7 +521,7 @@ function rTimer(){
   const prog=maxT>0?1-S.tL/maxT:1;
   const dots=blks.map((_,i)=>`<div class="bdt ${i<S.bI?'dn':''} ${i===S.bI?'act':''}" style="${i===S.bI?`background:${bcol(i)}`:i<S.bI?`background:${bcol(i)}60`:''}"></div>`).join('');
   const sndIcon=S.soundMode==='all'?'🔊':S.soundMode==='end'?'🔔':'🔇';
-  const ctrl=`<div class="tctrl"><button class="tb" id="tp">${S.paused?'▶':'⏸'}</button><button class="tb sk" id="tsk">⏭</button><button class="tb" id="tsnd" style="font-size:18px">${sndIcon}</button><button class="tb stp" id="tst">■</button></div>`;
+  const ctrl=`<div class="tctrl"><button class="tb" id="tp">${S.paused?'▶':'⏸'}</button><button class="tb sk" id="tsk">⏭</button><button class="tb" id="tsnd" style="font-size:18px">${sndIcon}</button>${isMob?'<button class="tb" id="tmin" style="font-size:16px">✏️</button>':''}<button class="tb stp" id="tst">■</button></div>`;
   const pov=S.paused?`<div class="pov"><div class="pt">PAUSED</div><button id="tr">▶ RESUME</button></div>`:'';
 
   if(S.phase==='done')return`<div class="timer t-dn"><div class="bdots">${dots}</div><div class="tdn"><div class="emoji">🔥</div><div class="title" style="color:${accent}">DONE!</div><div class="sub">Session complete!</div><button id="tbk">← Back</button></div></div>`;
@@ -603,10 +643,61 @@ function bModals(){
   // QR handled by img tag in modal
 }
 
+function startFromBlock(bi){
+  const blks=curBlocks();
+  if(bi>=blks.length)return;
+  ga();S.screen='timer';S.bI=bi;S.eI=0;S.rI=0;S.paused=false;S.phase='ready';S.tL=5;S.timerRunning=true;
+  clearInterval(tInt);tInt=setInterval(tick,1e3);
+  try{navigator.wakeLock?.request('screen')}catch(e){}render();
+}
+
 function bMobile(){
-  document.querySelectorAll('[data-mt]').forEach(b=>b.addEventListener('click',()=>{S.mobC[+b.dataset.mt]=!S.mobC[+b.dataset.mt];render()}));
+  // Block collapse/expand (only if not clicking play button)
+  document.querySelectorAll('[data-mt]').forEach(b=>b.addEventListener('click',(e)=>{
+    if(e.target.closest('[data-mplay]')||e.target.closest('[data-mswap]')||e.target.closest('[data-mdel]')||e.target.closest('[data-madd]'))return;
+    S.mobC[+b.dataset.mt]=!S.mobC[+b.dataset.mt];render();
+  }));
   document.getElementById('mstart')?.addEventListener('click',()=>{S.mobSession=S.mobSession||{blocks:S.blocks};startTimer()});
   document.getElementById('mload')?.addEventListener('click',()=>{try{const d=JSON.parse(document.getElementById('mpaste')?.value);if(d.blocks){S.mobSession=d;S.blocks=d.blocks;S.sName=d.n||'Session';render()}}catch(e){alert('Invalid data')}});
+  // Start from block
+  document.querySelectorAll('[data-mplay]').forEach(b=>b.addEventListener('click',(e)=>{e.stopPropagation();const bi=+b.dataset.mplay;S.mobSession=S.mobSession||{blocks:S.blocks};startFromBlock(bi)}));
+  // Swap exercise
+  document.querySelectorAll('[data-mswap]').forEach(b=>b.addEventListener('click',(e)=>{e.stopPropagation();S.mobEdit={bi:+b.dataset.mswap,ei:+b.dataset.msei,mode:'swap',search:''};render()}));
+  // Delete exercise
+  document.querySelectorAll('[data-mdel]').forEach(b=>b.addEventListener('click',(e)=>{e.stopPropagation();const bi=+b.dataset.mdel,ei=+b.dataset.mdei;const blks=S.mobSession?.blocks||S.blocks;blks[bi].exercises.splice(ei,1);render()}));
+  // Add exercise
+  document.querySelectorAll('[data-madd]').forEach(b=>b.addEventListener('click',(e)=>{e.stopPropagation();S.mobEdit={bi:+b.dataset.madd,ei:-1,mode:'add',search:''};render()}));
+  // Return to timer bar
+  document.getElementById('treturn')?.addEventListener('click',returnToT);
+  document.getElementById('tbar')?.addEventListener('click',(e)=>{if(e.target.id!=='treturn')returnToT()});
+  // Swap modal bindings
+  document.getElementById('mclose')?.addEventListener('click',()=>{S.mobEdit=null;render()});
+  document.getElementById('mbg')?.addEventListener('click',(e)=>{if(e.target.id==='mbg'){S.mobEdit=null;render()}});
+  document.getElementById('msrch')?.addEventListener('input',(e)=>{if(S.mobEdit)S.mobEdit.search=e.target.value;
+    // Partial re-render of swap list only
+    const ml=document.querySelector('.swap-list');if(ml){
+      const items=lib.filter(ex=>{if(!S.mobEdit.search)return true;return ex.name.toLowerCase().includes(S.mobEdit.search.toLowerCase())});
+      const grouped={};items.forEach(ex=>{const p=ex.cats[0]||'other';if(!grouped[p])grouped[p]=[];grouped[p].push(ex)});
+      let h='';for(const[cat,exs]of Object.entries(grouped)){const C=CATS[cat];h+=`<div class="lcat" style="color:${C?.color||'#666'};padding:8px 0 2px">${C?.label||cat}</div>`;exs.forEach(ex=>{h+=`<div class="swap-item" data-swp="${ex.name}"><span class="ldot" style="background:${pcc(ex.cats)}"></span><span style="flex:1;font-size:13px">${ex.name}</span></div>`})}
+      ml.innerHTML=h;
+      ml.querySelectorAll('[data-swp]').forEach(s=>s.addEventListener('click',()=>doSwap(s.dataset.swp)));
+    }
+  });
+  document.querySelectorAll('[data-swp]').forEach(s=>s.addEventListener('click',()=>doSwap(s.dataset.swp)));
+}
+function doSwap(name){
+  if(!S.mobEdit)return;
+  const{bi,ei,mode}=S.mobEdit;
+  const blks=S.mobSession?.blocks||S.blocks;
+  const le=lib.find(l=>l.name===name);
+  const newEx={name,cats:le?.cats||['other'],note:'',duration:0};
+  if(mode==='swap'&&ei>=0){
+    newEx.duration=blks[bi].exercises[ei].duration||0;
+    blks[bi].exercises[ei]=newEx;
+  }else{
+    blks[bi].exercises.push(newEx);
+  }
+  S.mobEdit=null;render();
 }
 
 function bTimer(){
@@ -615,6 +706,7 @@ function bTimer(){
   document.getElementById('tr')?.addEventListener('click',togPause);
   document.getElementById('tbk')?.addEventListener('click',stopT);
   document.getElementById('tsk')?.addEventListener('click',skip);
+  document.getElementById('tmin')?.addEventListener('click',minimizeT);
   document.getElementById('tsnd')?.addEventListener('click',()=>{
     const modes=['all','end','mute'];
     S.soundMode=modes[(modes.indexOf(S.soundMode)+1)%modes.length];
