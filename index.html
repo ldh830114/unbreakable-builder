@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>HIIT Pro</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#08090a">
+<link rel="manifest" href="/manifest.json">
+<title>Unbreakable Workout</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700;800;900&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -410,7 +413,7 @@ function rBuilder(){
   if(S.modal==='note')mdl=rNoteModal();
   if(S.modal==='share')mdl=rShareModal();
 
-  return`<div class="appbar"><div class="logo"><div class="logo-i">H</div><h1>HIIT Pro</h1></div><div class="acts"><button class="ab" id="btn-tpl">📁 Templates</button><button class="ab" id="btn-save">💾 Save</button><button class="ab" id="btn-share">📱 Share</button><button class="ab pri" id="btn-start">▶ Start</button></div></div>
+  return`<div class="appbar"><div class="logo"><div class="logo-i">U</div><h1>Unbreakable Workout</h1></div><div class="acts"><button class="ab" id="btn-tpl">📁 Templates</button><button class="ab" id="btn-save">💾 Save</button><button class="ab" id="btn-share">📱 Share</button><button class="ab pri" id="btn-start">▶ Start</button></div></div>
   <div class="builder"><div class="lib"><div class="lib-hd"><h2>Exercise Library</h2><input class="lib-sr" id="lsr" placeholder="Search..." value="${S.libSearch}"><div class="lib-fl">${filters}</div></div><div class="lib-ls" id="lls">${lhtml}</div><div class="lib-add" id="btn-ce">+ Custom Exercise</div></div>
   <div class="ws"><div class="ws-hd"><input class="sn" id="sn" value="${S.sName}"><div class="ws-m"><span style="color:var(--t3)">Total: <strong style="color:var(--amb)">${fmtd(td)}</strong></span></div></div>
   <div class="ba" id="ba">${blksHtml}<div class="add-bc"><button class="add-bb" id="btn-ab">+ Block</button></div></div></div></div>${mdl}`;
@@ -426,7 +429,7 @@ function rShareModal(){const url=genShareURL();return`<div class="mbg" id="mbg">
 function rMobile(){
   const sess=S.mobSession||{n:S.sName,blocks:S.blocks};
   const has=sess.blocks?.some(b=>b.type==='stations'||b.exercises?.length);
-  if(!has)return`<div class="mob"><div class="mob-hd"><div class="tag">HIIT Pro</div><h1>Workout Timer</h1></div><div class="mob-empty">No workout loaded.<br><br>Build on desktop → Share to Mobile<br><br>Or paste data:</div><div class="mob-ld" style="max-width:500px;margin:0 auto"><textarea id="mpaste" placeholder="Paste session data..."></textarea><button id="mload">Load</button></div></div>`;
+  if(!has)return`<div class="mob"><div class="mob-hd"><div class="tag">Unbreakable Workout</div><h1>Workout Timer</h1></div><div class="mob-empty">No workout loaded.<br><br>Build on desktop → Share to Mobile<br><br>Or paste data:</div><div class="mob-ld" style="max-width:500px;margin:0 auto"><textarea id="mpaste" placeholder="Paste session data..."></textarea><button id="mload">Load</button></div></div>`;
   const blks=sess.blocks;const td=totalDur(blks);
   const bhtml=blks.map((b,bi)=>{const col=bcol(bi);const open=!S.mobC[bi];const isSt=b.type==='stations';
     let body='';if(open){
@@ -436,7 +439,7 @@ function rMobile(){
     }
     return`<div class="mob-b"><div class="mob-bh" data-mt="${bi}"><span class="mob-bn" style="background:${col}20;color:${col}">${bi+1}</span><span class="mob-bt">${b.name}</span><span class="mob-bm">${isSt?'🔄':'⚡'} ${fmtd(blockDur(b)+(b.restAfterBlock||0))}</span><span style="color:var(--t3)">${open?'▾':'▸'}</span></div>${body}</div>`;
   }).join('');
-  return`<div class="mob"><div class="mob-hd"><div class="tag">HIIT Pro</div><h1>Workout Timer</h1></div><div class="mob-s"><div class="mob-sn">${sess.n||S.sName}</div><div class="mob-sm">${blks.length} blocks · ${fmtd(td)}</div>${bhtml}</div><button class="mob-start" id="mstart">▶ START</button></div>`;
+  return`<div class="mob"><div class="mob-hd"><div class="tag">Unbreakable Workout</div><h1>Workout Timer</h1></div><div class="mob-s"><div class="mob-sn">${sess.n||S.sName}</div><div class="mob-sm">${blks.length} blocks · ${fmtd(td)}</div>${bhtml}</div><button class="mob-start" id="mstart">▶ START</button></div>`;
 }
 
 // ─── Timer ───
