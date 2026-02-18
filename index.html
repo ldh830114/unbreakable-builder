@@ -162,11 +162,16 @@ button{font-family:var(--fn);cursor:pointer}input,textarea,select{font-family:va
 .bdots{position:absolute;top:14px;display:flex;gap:6px}
 .bdt{width:8px;height:8px;border-radius:4px;background:rgba(255,255,255,.1)}
 .bdt.act{width:24px}.bdt.dn{background:rgba(255,255,255,.25)}
-.tph{font-size:14px;letter-spacing:6px;text-transform:uppercase;font-weight:700}
+.tph{font-size:clamp(16px,4vw,22px);letter-spacing:8px;text-transform:uppercase;font-weight:700}
 .tblk{font-size:12px;color:rgba(255,255,255,.3);margin-bottom:2px;font-family:var(--fn)}
-.tex{font-size:clamp(22px,6.5vw,40px);font-weight:800;text-align:center;line-height:1.1;color:#fff;margin:4px 0;font-family:var(--fn)}
+.tex{font-size:clamp(26px,8vw,52px);font-weight:800;text-align:center;line-height:1.1;color:#fff;margin:6px 0;font-family:var(--fn)}
 .texn{font-size:12px;color:rgba(255,255,255,.3);margin-top:2px;font-style:italic;font-family:var(--fn)}
-.tbig{font-size:clamp(90px,32vw,180px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;margin:6px 0}
+.tbig{font-size:clamp(120px,42vw,240px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;margin:6px 0}
+.countdown-flash{animation:cdPulse .6s ease-out;position:relative}
+.cd-2{color:#f97316 !important;text-shadow:0 0 80px rgba(249,115,22,.6) !important}
+.cd-1{color:#ef4444 !important;text-shadow:0 0 100px rgba(239,68,68,.8) !important;animation:cdPulse .6s ease-out,cdShake .1s ease-in-out 3}
+@keyframes cdPulse{0%{transform:scale(1.8);opacity:0}30%{opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes cdShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
 .ttrk{width:180px;height:4px;border-radius:2px;background:rgba(255,255,255,.08);margin-bottom:12px}
 .ttf{height:100%;border-radius:2px;transition:width .3s linear}
 .tmeta{display:flex;gap:16px;font-size:12px;color:rgba(255,255,255,.3);flex-wrap:wrap;justify-content:center}
@@ -271,7 +276,7 @@ function totalDur(blks){
 let S={screen:isMob?'mobile':'builder',sName:'New Session',targetTime:45,blocks:[],
   libSearch:'',libFilter:'all',modal:null,noteBI:-1,noteEI:-1,
   ceData:{name:'',cats:[],note:''},
-  phase:'',bI:0,eI:0,rI:0,tL:0,paused:false,
+  phase:'',bI:0,eI:0,rI:0,tL:0,paused:false,soundMode:'all',
   mobSession:null,mobC:{}};
 
 function loadHash(){
@@ -282,7 +287,14 @@ if(!loadHash())S.blocks=[newBlock(0)];
 // ═══ Audio ═══
 let actx=null;function ga(){if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();return actx}
 function bip(f,d,t='sine'){try{const c=ga(),o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;g.gain.value=.5;g.gain.exponentialRampToValueAtTime(.01,c.currentTime+d);o.connect(g);g.connect(c.destination);o.start(c.currentTime);o.stop(c.currentTime+d)}catch(e){}}
-const sn={tick:()=>bip(880,.1),go:()=>{bip(1100,.2,'square');setTimeout(()=>bip(1400,.3,'square'),250)},rest:()=>bip(440,.3,'triangle'),done:()=>{bip(880,.12);setTimeout(()=>bip(1100,.12),160);setTimeout(()=>bip(1400,.12),320);setTimeout(()=>bip(1760,.35),480)},rotate:()=>{bip(1000,.15,'square');setTimeout(()=>bip(1200,.15,'square'),170);setTimeout(()=>bip(1000,.15,'square'),340)}};
+const _sn={tick:()=>bip(880,.1),go:()=>{bip(1100,.2,'square');setTimeout(()=>bip(1400,.3,'square'),250)},rest:()=>bip(440,.3,'triangle'),done:()=>{bip(880,.12);setTimeout(()=>bip(1100,.12),160);setTimeout(()=>bip(1400,.12),320);setTimeout(()=>bip(1760,.35),480)},rotate:()=>{bip(1000,.15,'square');setTimeout(()=>bip(1200,.15,'square'),170);setTimeout(()=>bip(1000,.15,'square'),340)}};
+const sn={
+  tick:()=>{if(S.soundMode==='all')_sn.tick()},
+  go:()=>{if(S.soundMode==='all')_sn.go()},
+  rest:()=>{if(S.soundMode==='all')_sn.rest()},
+  done:()=>{if(S.soundMode!=='mute')_sn.done()},
+  rotate:()=>{if(S.soundMode==='all')_sn.rotate()}
+};
 
 // ═══ Timer ═══
 let tInt=null;
@@ -346,42 +358,6 @@ function finish(){sn.done();S.phase='done';S.tL=0;clearInterval(tInt)}
 function stopT(){clearInterval(tInt);S.screen=isMob?'mobile':'builder';S.phase='';S.paused=false;render()}
 function togPause(){S.paused=!S.paused;render()}
 function skip(){S.tL=0;advance();render()}
-
-// ═══ QR Code (self-contained) ═══
-// Minimal QR encoder - supports alphanumeric/byte mode
-(function(){
-const QR=(function(){
-function QRCode(t,e){this.typeNumber=t;this.errorCorrectLevel=e;this.modules=null;this.moduleCount=0;this.dataCache=null;this.dataList=[];this.make()}
-QRCode.prototype={addData:function(d){this.dataList.push({mode:4,data:d});this.dataCache=null},make:function(){if(this.typeNumber<1){let t=1;for(t=1;t<40;t++){let r=QRRSBlock.getRSBlocks(t,this.errorCorrectLevel),tc=0;for(let i=0;i<r.length;i++)tc+=r[i].dataCount;let l=this.dataList.length,bl=0;for(let i=0;i<l;i++){bl+=4;bl+=8*this.dataList[i].data.length}if(bl<=tc*8)break}this.typeNumber=t}this.makeImpl(false,this.getBestMaskPattern())},makeImpl:function(t,m){this.moduleCount=this.typeNumber*4+17;this.modules=new Array(this.moduleCount);for(let r=0;r<this.moduleCount;r++){this.modules[r]=new Array(this.moduleCount);for(let c=0;c<this.moduleCount;c++)this.modules[r][c]=null}this.setupPositionProbePattern(0,0);this.setupPositionProbePattern(this.moduleCount-7,0);this.setupPositionProbePattern(0,this.moduleCount-7);this.setupPositionAdjustPattern();this.setupTimingPattern();this.setupTypeInfo(t,m);if(this.typeNumber>=7)this.setupTypeNumber(t);if(this.dataCache==null)this.dataCache=createData(this.typeNumber,this.errorCorrectLevel,this.dataList);this.mapData(this.dataCache,m)},setupPositionProbePattern:function(r,c){for(let row=-1;row<=7;row++){if(r+row<=-1||this.moduleCount<=r+row)continue;for(let col=-1;col<=7;col++){if(c+col<=-1||this.moduleCount<=c+col)continue;this.modules[r+row][c+col]=(0<=row&&row<=6&&(col==0||col==6))||(0<=col&&col<=6&&(row==0||row==6))||(2<=row&&row<=4&&2<=col&&col<=4)}}},getBestMaskPattern:function(){let m=0,min=0;for(let i=0;i<8;i++){this.makeImpl(true,i);let l=QRUtil.getLostPoint(this);if(i==0||min>l){min=l;m=i}}return m},setupTimingPattern:function(){for(let r=8;r<this.moduleCount-8;r++){if(this.modules[r][6]!=null)continue;this.modules[r][6]=(r%2==0)}for(let c=8;c<this.moduleCount-8;c++){if(this.modules[6][c]!=null)continue;this.modules[6][c]=(c%2==0)}},setupPositionAdjustPattern:function(){let p=QRUtil.getPatternPosition(this.typeNumber);for(let i=0;i<p.length;i++)for(let j=0;j<p.length;j++){let r=p[i],c=p[j];if(this.modules[r][c]!=null)continue;for(let row=-2;row<=2;row++)for(let col=-2;col<=2;col++)this.modules[r+row][c+col]=(row==-2||row==2||col==-2||col==2||(row==0&&col==0))}},setupTypeNumber:function(t){let b=QRUtil.getBCHTypeNumber(this.typeNumber);for(let i=0;i<18;i++){let m=(!t&&((b>>i)&1)==1);this.modules[Math.floor(i/3)][i%3+this.moduleCount-8-3]=m;this.modules[i%3+this.moduleCount-8-3][Math.floor(i/3)]=m}},setupTypeInfo:function(t,m){let d=(this.errorCorrectLevel<<3)|m,b=QRUtil.getBCHTypeInfo(d);for(let i=0;i<15;i++){let md=(!t&&((b>>i)&1)==1);if(i<6)this.modules[i][8]=md;else if(i<8)this.modules[i+1][8]=md;else this.modules[this.moduleCount-15+i][8]=md;if(i<8)this.modules[8][this.moduleCount-i-1]=md;else if(i<9)this.modules[8][15-i-1+1]=md;else this.modules[8][15-i-1]=md}this.modules[this.moduleCount-8][8]=(!t)},mapData:function(d,m){let inc=-1,r=this.moduleCount-1,bi=7,di=0;for(let c=this.moduleCount-1;c>0;c-=2){if(c==6)c--;while(true){for(let i=0;i<2;i++){if(this.modules[r][c-i]==null){let dk=false;if(di<d.length)dk=((d[di]>>>bi)&1)==1;let mk=QRUtil.getMask(m,r,c-i);if(mk)dk=!dk;this.modules[r][c-i]=dk;bi--;if(bi==-1){di++;bi=7}}}r+=inc;if(r<0||this.moduleCount<=r){r-=inc;inc=-inc;break}}}}};
-function createData(t,e,dl){let rs=QRRSBlock.getRSBlocks(t,e),buf=new QRBitBuffer;for(let i=0;i<dl.length;i++){let d=dl[i];buf.put(d.mode,4);buf.put(d.data.length,8);for(let j=0;j<d.data.length;j++)buf.put(d.data.charCodeAt(j),8)}let tc=0;for(let i=0;i<rs.length;i++)tc+=rs[i].dataCount;if(buf.getLengthInBits()>tc*8)throw new Error("code length overflow");if(buf.getLengthInBits()+4<=tc*8)buf.put(0,4);while(buf.getLengthInBits()%8!=0)buf.putBit(false);while(true){if(buf.getLengthInBits()>=tc*8)break;buf.put(236,8);if(buf.getLengthInBits()>=tc*8)break;buf.put(17,8)}return createBytes(buf,rs)}
-function createBytes(buf,rs){let o=0,mx=0,dc=[],ec=[];for(let r=0;r<rs.length;r++){let dcC=rs[r].dataCount,ecC=rs[r].totalCount-dcC;mx=Math.max(mx,ecC);dc[r]=new Array(dcC);for(let i=0;i<dc[r].length;i++)dc[r][i]=0xff&buf.buffer[i+o];o+=dcC;let re=QRUtil.getErrorCorrectPolynomial(ecC),rd=new QRPolynomial(dc[r],re.getLength()-1),md=rd.mod(re);ec[r]=new Array(re.getLength()-1);for(let i=0;i<ec[r].length;i++){let mi=i+md.getLength()-ec[r].length;ec[r][i]=(mi>=0)?md.get(mi):0}}let tc=0;for(let i=0;i<rs.length;i++)tc+=rs[i].totalCount;let d=new Array(tc),idx=0;for(let i=0;i<dc[0].length;i++)for(let r=0;r<rs.length;r++)if(i<dc[r].length)d[idx++]=dc[r][i];for(let i=0;i<mx;i++)for(let r=0;r<rs.length;r++)if(i<ec[r].length)d[idx++]=ec[r][i];return d}
-let QRUtil={PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],G15:(1<<10)|(1<<8)|(1<<5)|(1<<4)|(1<<2)|1,G18:(1<<12)|(1<<11)|(1<<10)|(1<<9)|(1<<8)|(1<<5)|(1<<2)|1,G15_MASK:(1<<14)|(1<<12)|(1<<10)|(1<<4)|(1<<1),getBCHTypeInfo:function(d){let e=d<<10;while(QRUtil.getBCHDigit(e)-QRUtil.getBCHDigit(QRUtil.G15)>=0)e^=(QRUtil.G15<<(QRUtil.getBCHDigit(e)-QRUtil.getBCHDigit(QRUtil.G15)));return((d<<10)|e)^QRUtil.G15_MASK},getBCHTypeNumber:function(d){let e=d<<12;while(QRUtil.getBCHDigit(e)-QRUtil.getBCHDigit(QRUtil.G18)>=0)e^=(QRUtil.G18<<(QRUtil.getBCHDigit(e)-QRUtil.getBCHDigit(QRUtil.G18)));return(d<<12)|e},getBCHDigit:function(d){let dig=0;while(d!=0){dig++;d>>>=1}return dig},getPatternPosition:function(t){return QRUtil.PATTERN_POSITION_TABLE[t-1]},getMask:function(m,i,j){switch(m){case 0:return(i+j)%2==0;case 1:return i%2==0;case 2:return j%3==0;case 3:return(i+j)%3==0;case 4:return(Math.floor(i/2)+Math.floor(j/3))%2==0;case 5:return(i*j)%2+(i*j)%3==0;case 6:return((i*j)%2+(i*j)%3)%2==0;case 7:return((i*j)%3+(i+j)%2)%2==0;default:throw new Error("bad mask:"+m)}},getErrorCorrectPolynomial:function(l){let a=new QRPolynomial([1],0);for(let i=0;i<l;i++)a=a.multiply(new QRPolynomial([1,QRMath.gexp(i)],0));return a},getLostPoint:function(q){let mc=q.moduleCount,lp=0;for(let r=0;r<mc;r++)for(let c=0;c<mc;c++){let sc=0;for(let dr=-1;dr<=1;dr++){if(r+dr<0||mc<=r+dr)continue;for(let dc=-1;dc<=1;dc++){if(c+dc<0||mc<=c+dc)continue;if(dr==0&&dc==0)continue;if(q.modules[r+dr][c+dc]==q.modules[r][c])sc++}}if(sc>5)lp+=(3+sc-5)}for(let r=0;r<mc-1;r++)for(let c=0;c<mc-1;c++){let cnt=0;if(q.modules[r][c])cnt++;if(q.modules[r+1][c])cnt++;if(q.modules[r][c+1])cnt++;if(q.modules[r+1][c+1])cnt++;if(cnt==0||cnt==4)lp+=3}for(let r=0;r<mc;r++)for(let c=0;c<mc-6;c++)if(q.modules[r][c]&&!q.modules[r][c+1]&&q.modules[r][c+2]&&q.modules[r][c+3]&&q.modules[r][c+4]&&!q.modules[r][c+5]&&q.modules[r][c+6])lp+=40;for(let c=0;c<mc;c++)for(let r=0;r<mc-6;r++)if(q.modules[r][c]&&!q.modules[r+1][c]&&q.modules[r+2][c]&&q.modules[r+3][c]&&q.modules[r+4][c]&&!q.modules[r+5][c]&&q.modules[r+6][c])lp+=40;let dk=0;for(let c=0;c<mc;c++)for(let r=0;r<mc;r++)if(q.modules[r][c])dk++;lp+=Math.abs(100*dk/mc/mc-50)/5*10;return lp}};
-let QRMath={glog:function(n){if(n<1)throw new Error("glog("+n+")");return QRMath.LOG_TABLE[n]},gexp:function(n){while(n<0)n+=255;while(n>=256)n-=255;return QRMath.EXP_TABLE[n]},EXP_TABLE:new Array(256),LOG_TABLE:new Array(256)};for(let i=0;i<8;i++)QRMath.EXP_TABLE[i]=1<<i;for(let i=8;i<256;i++)QRMath.EXP_TABLE[i]=QRMath.EXP_TABLE[i-4]^QRMath.EXP_TABLE[i-5]^QRMath.EXP_TABLE[i-6]^QRMath.EXP_TABLE[i-8];for(let i=0;i<255;i++)QRMath.LOG_TABLE[QRMath.EXP_TABLE[i]]=i;
-function QRPolynomial(n,s){if(n.length==undefined)throw new Error(n.length+"/"+s);let o=0;while(o<n.length&&n[o]==0)o++;this.num=new Array(n.length-o+s);for(let i=0;i<n.length-o;i++)this.num[i]=n[i+o]}
-QRPolynomial.prototype={get:function(i){return this.num[i]},getLength:function(){return this.num.length},multiply:function(e){let n=new Array(this.getLength()+e.getLength()-1);for(let i=0;i<this.getLength();i++)for(let j=0;j<e.getLength();j++)n[i+j]^=QRMath.gexp(QRMath.glog(this.get(i))+QRMath.glog(e.get(j)));return new QRPolynomial(n,0)},mod:function(e){if(this.getLength()-e.getLength()<0)return this;let r=QRMath.glog(this.get(0))-QRMath.glog(e.get(0)),n=new Array(this.getLength());for(let i=0;i<this.getLength();i++)n[i]=this.get(i);for(let i=0;i<e.getLength();i++)n[i]^=QRMath.gexp(QRMath.glog(e.get(i))+r);return new QRPolynomial(n,0).mod(e)}};
-let QRRSBlock={RS_BLOCK_TABLE:[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],getRSBlocks:function(t,e){let r=QRRSBlock.getRsBlockTable(t,e);if(r==undefined)throw new Error("bad rs block @ typeNumber:"+t+"/errorCorrectLevel:"+e);let l=r.length/3,list=[];for(let i=0;i<l;i++){let c=r[i*3+0],tc=r[i*3+1],dc=r[i*3+2];for(let j=0;j<c;j++)list.push({totalCount:tc,dataCount:dc})}return list},getRsBlockTable:function(t,e){switch(e){case 1:return QRRSBlock.RS_BLOCK_TABLE[(t-1)*4+0];case 0:return QRRSBlock.RS_BLOCK_TABLE[(t-1)*4+1];case 3:return QRRSBlock.RS_BLOCK_TABLE[(t-1)*4+2];case 2:return QRRSBlock.RS_BLOCK_TABLE[(t-1)*4+3];default:return undefined}}};
-function QRBitBuffer(){this.buffer=[];this.length=0}
-QRBitBuffer.prototype={get:function(i){return((this.buffer[Math.floor(i/8)]>>>(7-i%8))&1)==1},put:function(n,l){for(let i=0;i<l;i++)this.putBit(((n>>>(l-i-1))&1)==1)},getLengthInBits:function(){return this.length},putBit:function(b){let bi=Math.floor(this.length/8);if(this.buffer.length<=bi)this.buffer.push(0);if(b)this.buffer[bi]|=(0x80>>>(this.length%8));this.length++}};
-return QRCode})();
-window._QR=QR;
-})();
-
-function drawQR(canvas,text){
-  try{
-    const qr=new window._QR(0,1);
-    qr.addData(text);qr.make();
-    const mc=qr.moduleCount,sz=Math.max(200,mc*4),cs=Math.floor(sz/mc);
-    canvas.width=cs*mc+16;canvas.height=cs*mc+16;
-    const ctx=canvas.getContext('2d');
-    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle='#000000';
-    for(let r=0;r<mc;r++)for(let c=0;c<mc;c++)if(qr.modules[r][c])ctx.fillRect(8+c*cs,8+r*cs,cs,cs);
-  }catch(e){
-    canvas.width=200;canvas.height=50;
-    const ctx=canvas.getContext('2d');ctx.fillStyle='#181a1d';ctx.fillRect(0,0,200,50);
-    ctx.fillStyle='#fbbf24';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText('QR unavailable',100,30);
-  }
-}
 
 // ═══ Share ═══
 function genShareURL(){return location.origin+location.pathname+'#'+btoa(encodeURIComponent(JSON.stringify({n:S.sName,blocks:S.blocks})))}
@@ -461,7 +437,7 @@ function rBuilder(){
 function rTplModal(){let l='';if(!tpls.length)l='<div style="text-align:center;color:var(--t3);padding:16px;font-size:12px">No saved templates</div>';else tpls.forEach((t,i)=>{l+=`<div class="tpl-i"><div><div class="nm">${t.name}</div><div class="mt">${t.blocks?.length||0} blocks</div></div><div class="tbs"><button data-tl="${i}">Load</button><button class="dl" data-td="${i}">Del</button></div></div>`});return`<div class="mbg" id="mbg"><div class="mdl"><h2>Templates</h2>${l}<button class="mc" id="mclose">Close</button></div></div>`}
 function rCeModal(){const cb=Object.entries(CATS).map(([k,v])=>`<button class="mcat ${S.ceData.cats.includes(k)?'sel':''}" data-cc="${k}" style="${S.ceData.cats.includes(k)?`background:${v.color}20;border-color:${v.color};color:${v.color}`:''}">${v.label}</button>`).join('');return`<div class="mbg" id="mbg"><div class="mdl"><h2>Custom Exercise</h2><div class="mf"><label>Name</label><input id="cen" value="${S.ceData.name}"></div><div class="mf"><label>Categories</label><div class="mcats">${cb}</div></div><div class="mf"><label>Notes</label><textarea id="cent">${S.ceData.note||''}</textarea></div><div class="mbtns"><button id="cec">Cancel</button><button class="sv" id="ces">Add</button></div></div></div>`}
 function rNoteModal(){const ex=S.blocks[S.noteBI]?.exercises[S.noteEI];return`<div class="mbg" id="mbg"><div class="mdl"><h2>Note: ${ex?.name||''}</h2><div class="mf"><textarea id="ntext">${ex?.note||''}</textarea></div><div class="mbtns"><button id="nc">Cancel</button><button class="sv" id="ns">Save</button></div></div></div>`}
-function rShareModal(){const url=genShareURL();return`<div class="mbg" id="mbg"><div class="mdl"><h2>📱 Sync to Mobile</h2><p style="font-size:12px;color:var(--t3);margin-bottom:12px">Scan this QR code on your phone to open the workout timer:</p><div style="text-align:center;margin:16px 0"><canvas id="qrc" style="border-radius:8px;image-rendering:pixelated"></canvas></div><p style="font-size:12px;color:var(--amb);font-weight:700;text-align:center;margin-bottom:12px;word-break:break-all">${location.origin}</p><button class="cpbtn" id="cpurl" style="margin-bottom:8px">📋 Copy Site URL</button><p style="font-size:11px;color:var(--t3);margin-top:12px">Or share via encoded URL (works offline):</p><div class="share-box" id="surl" style="margin-top:6px">${url}</div><button class="cpbtn" id="cpurl2" style="background:var(--cd);color:var(--t2);border:1px solid var(--bd);margin-top:6px">📋 Copy Workout URL</button><button class="mc" id="mclose">Close</button></div></div>`}
+function rShareModal(){const url=genShareURL();const siteUrl=location.origin+location.pathname;const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(siteUrl)}`;return`<div class="mbg" id="mbg"><div class="mdl"><h2>📱 Sync to Mobile</h2><p style="font-size:12px;color:var(--t3);margin-bottom:12px">Scan this QR code on your phone to open the workout timer:</p><div style="text-align:center;margin:16px 0"><img id="qrc" src="${qrUrl}" width="200" height="200" style="border-radius:8px;background:#fff" onerror="this.style.display='none'"><div id="qrf" style="display:none;color:var(--t3);font-size:12px;padding:16px">QR loading failed — copy the URL below instead</div></div><p style="font-size:12px;color:var(--amb);font-weight:700;text-align:center;margin-bottom:12px;word-break:break-all">${siteUrl}</p><button class="cpbtn" id="cpurl" style="margin-bottom:8px">📋 Copy Site URL</button><p style="font-size:11px;color:var(--t3);margin-top:12px">Or share via encoded URL (works offline):</p><div class="share-box" id="surl" style="margin-top:6px">${url}</div><button class="cpbtn" id="cpurl2" style="background:var(--cd);color:var(--t2);border:1px solid var(--bd);margin-top:6px">📋 Copy Workout URL</button><button class="mc" id="mclose">Close</button></div></div>`}
 
 // ─── Mobile ───
 function rMobile(){
@@ -497,7 +473,8 @@ function rTimer(){
   else if(S.phase==='blockRest')maxT=blks[S.bI-1]?.restAfterBlock||1;
   const prog=maxT>0?1-S.tL/maxT:1;
   const dots=blks.map((_,i)=>`<div class="bdt ${i<S.bI?'dn':''} ${i===S.bI?'act':''}" style="${i===S.bI?`background:${bcol(i)}`:i<S.bI?`background:${bcol(i)}60`:''}"></div>`).join('');
-  const ctrl=`<div class="tctrl"><button class="tb" id="tp">${S.paused?'▶':'⏸'}</button><button class="tb sk" id="tsk">⏭</button><button class="tb stp" id="tst">■</button></div>`;
+  const sndIcon=S.soundMode==='all'?'🔊':S.soundMode==='end'?'🔔':'🔇';
+  const ctrl=`<div class="tctrl"><button class="tb" id="tp">${S.paused?'▶':'⏸'}</button><button class="tb sk" id="tsk">⏭</button><button class="tb" id="tsnd" style="font-size:18px">${sndIcon}</button><button class="tb stp" id="tst">■</button></div>`;
   const pov=S.paused?`<div class="pov"><div class="pt">PAUSED</div><button id="tr">▶ RESUME</button></div>`:'';
 
   if(S.phase==='done')return`<div class="timer t-dn"><div class="bdots">${dots}</div><div class="tdn"><div class="emoji">🔥</div><div class="title" style="color:${accent}">DONE!</div><div class="sub">Session complete!</div><button id="tbk">← Back</button></div></div>`;
@@ -506,7 +483,8 @@ function rTimer(){
     const nb=blks[S.bI];const nisSt=nb?.type==='stations';
     const ep=nb?.exercises?.slice(0,6).map((e,i)=>`<strong>${i+1}.</strong> ${e.name}`).join('<br>')||'';
     const badge=nisSt?'🔄 Stations':'⚡ HIIT';
-    return`<div class="timer t-trn"><div class="tbar"><div class="tfill" style="width:${prog*100}%;background:${accent}"></div></div><div class="bdots">${dots}</div><div class="trs"><div class="un">Up Next</div><div class="bn" style="color:${bcol(S.bI)}">${nb?.name||''}</div><div style="font-size:12px;color:var(--amb);margin:4px 0">${badge}</div></div><div class="tbig" style="color:${accent};text-shadow:0 0 40px ${accent}30;margin-top:12px">${fmts(S.tL)}</div>${ctrl}${pov}</div>`;
+    const brCd=S.tL<=3&&S.tL>0?(S.tL===1?'countdown-flash cd-1':S.tL<=2?'countdown-flash cd-2':'countdown-flash'):'';
+    return`<div class="timer t-trn"><div class="tbar"><div class="tfill" style="width:${prog*100}%;background:${accent}"></div></div><div class="bdots">${dots}</div><div class="trs"><div class="un">Up Next</div><div class="bn" style="color:${bcol(S.bI)}">${nb?.name||''}</div><div style="font-size:12px;color:var(--amb);margin:4px 0">${badge}</div></div><div class="tbig ${brCd}" style="color:${accent};text-shadow:0 0 40px ${accent}30;margin-top:12px">${fmts(S.tL)}</div>${ctrl}${pov}</div>`;
   }
 
   let phLabel='',exDisp='',hint='',rotInfo='';
@@ -517,19 +495,25 @@ function rTimer(){
     if(S.phase==='roundRest')hint=`<div class="thint">🔄 Rotate to next station!</div>`;
   }else{
     phLabel=S.phase==='ready'?'GET READY':S.phase==='roundRest'?'REST':S.phase.toUpperCase();
-    if(S.phase!=='ready'&&ex)exDisp=`<div class="tex">${ex.name}</div>`;
-    const nextEx=b?.exercises?.[S.eI+1];
-    if((S.phase==='rest'||S.phase==='roundRest')&&nextEx)hint=`<div class="thint">Next: <strong>${nextEx.name}</strong></div>`;
-    else if(S.phase==='roundRest'&&b)hint=`<div class="thint">Round ${S.rI+1} → <strong>${b.exercises[0]?.name}</strong></div>`;
+    if(S.phase==='work'&&ex)exDisp=`<div class="tex">${ex.name}</div>`;
+    if(S.phase==='rest'){
+      const upNext=b?.exercises?.[S.eI];
+      if(upNext)hint=`<div class="thint">Up next: <strong>${upNext.name}</strong></div>`;
+    }
+    if(S.phase==='roundRest'&&b){
+      hint=`<div class="thint">Round ${S.rI+1} → <strong>${b.exercises[0]?.name}</strong></div>`;
+    }
   }
   const metaI=isSt
     ?`<span>Rotation <strong style="color:${accent}">${S.rI+1}</strong>/${b?.rounds}</span><span>Ex <strong style="color:${accent}">${S.eI+1}</strong>/${tot}</span><span>Block <strong style="color:${accent}">${S.bI+1}</strong>/${blks.length}</span>`
     :`<span>Round <strong style="color:${accent}">${S.rI+1}</strong>/${b?.rounds||0}</span><span>Ex <strong style="color:${accent}">${S.eI+1}</strong>/${tot}</span><span>Block <strong style="color:${accent}">${S.bI+1}</strong>/${blks.length}</span>`;
 
+    const cdClass=S.tL<=3&&S.tL>0?(S.tL===1?'countdown-flash cd-1':S.tL<=2?'countdown-flash cd-2':'countdown-flash'):'';
+
   return`<div class="timer ${pc}"><div class="tbar"><div class="tfill" style="width:${prog*100}%;background:${accent}"></div></div><div class="bdots">${dots}</div>
     <div class="tblk" style="color:${col}">${b?.name||''}</div><div class="tph" style="color:${accent}">${phLabel}</div>
     ${exDisp}${rotInfo}
-    <div class="tbig" style="color:${accent};text-shadow:0 0 50px ${accent}30">${fmts(S.tL)}</div>
+    <div class="tbig ${cdClass}" style="color:${accent};text-shadow:0 0 50px ${accent}30">${fmts(S.tL)}</div>
     <div class="ttrk"><div class="ttf" style="width:${prog*100}%;background:${accent}"></div></div>
     <div class="tmeta">${metaI}</div>${hint}${ctrl}${pov}</div>`;
 }
@@ -609,7 +593,7 @@ function bModals(){
   document.getElementById('ns')?.addEventListener('click',()=>{const v=document.getElementById('ntext')?.value||'';if(S.blocks[S.noteBI]?.exercises[S.noteEI])S.blocks[S.noteBI].exercises[S.noteEI].note=v;S.modal=null;render()});
   document.getElementById('cpurl')?.addEventListener('click',()=>{navigator.clipboard.writeText(location.origin).then(()=>{document.getElementById('cpurl').textContent='✓ Copied!'});setTimeout(()=>{const b=document.getElementById('cpurl');if(b)b.textContent='📋 Copy Site URL'},2e3)});
   document.getElementById('cpurl2')?.addEventListener('click',()=>{const u=document.getElementById('surl')?.textContent;if(u){navigator.clipboard.writeText(u).then(()=>{document.getElementById('cpurl2').textContent='✓ Copied!'});setTimeout(()=>{const b=document.getElementById('cpurl2');if(b)b.textContent='📋 Copy Workout URL'},2e3)}});
-  const qrc=document.getElementById('qrc');if(qrc)drawQR(qrc,location.origin+location.pathname);
+  // QR handled by img tag in modal
 }
 
 function bMobile(){
@@ -624,6 +608,11 @@ function bTimer(){
   document.getElementById('tr')?.addEventListener('click',togPause);
   document.getElementById('tbk')?.addEventListener('click',stopT);
   document.getElementById('tsk')?.addEventListener('click',skip);
+  document.getElementById('tsnd')?.addEventListener('click',()=>{
+    const modes=['all','end','mute'];
+    S.soundMode=modes[(modes.indexOf(S.soundMode)+1)%modes.length];
+    render();
+  });
 }
 
 render();
