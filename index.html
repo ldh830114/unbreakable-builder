@@ -338,6 +338,15 @@ function stopT(){clearInterval(tInt);S.screen=isMob?'mobile':'builder';S.phase='
 function togPause(){S.paused=!S.paused;render()}
 function skip(){S.tL=0;advance();render()}
 
+// ═══ QR Code ═══
+function drawQR(canvas,text){
+  const img=new Image();
+  img.crossOrigin='anonymous';
+  img.onload=()=>{canvas.width=200;canvas.height=200;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,200,200);ctx.drawImage(img,0,0,200,200)};
+  img.onerror=()=>{canvas.width=200;canvas.height=50;const ctx=canvas.getContext('2d');ctx.fillStyle='#181a1d';ctx.fillRect(0,0,200,50);ctx.fillStyle='#fbbf24';ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.fillText('Scan not available',100,30)};
+  img.src=`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text)}`;
+}
+
 // ═══ Share ═══
 function genShareURL(){return location.origin+location.pathname+'#'+btoa(encodeURIComponent(JSON.stringify({n:S.sName,blocks:S.blocks})))}
 
@@ -411,7 +420,7 @@ function rBuilder(){
 function rTplModal(){let l='';if(!tpls.length)l='<div style="text-align:center;color:var(--t3);padding:16px;font-size:12px">No saved templates</div>';else tpls.forEach((t,i)=>{l+=`<div class="tpl-i"><div><div class="nm">${t.name}</div><div class="mt">${t.blocks?.length||0} blocks</div></div><div class="tbs"><button data-tl="${i}">Load</button><button class="dl" data-td="${i}">Del</button></div></div>`});return`<div class="mbg" id="mbg"><div class="mdl"><h2>Templates</h2>${l}<button class="mc" id="mclose">Close</button></div></div>`}
 function rCeModal(){const cb=Object.entries(CATS).map(([k,v])=>`<button class="mcat ${S.ceData.cats.includes(k)?'sel':''}" data-cc="${k}" style="${S.ceData.cats.includes(k)?`background:${v.color}20;border-color:${v.color};color:${v.color}`:''}">${v.label}</button>`).join('');return`<div class="mbg" id="mbg"><div class="mdl"><h2>Custom Exercise</h2><div class="mf"><label>Name</label><input id="cen" value="${S.ceData.name}"></div><div class="mf"><label>Categories</label><div class="mcats">${cb}</div></div><div class="mf"><label>Notes</label><textarea id="cent">${S.ceData.note||''}</textarea></div><div class="mbtns"><button id="cec">Cancel</button><button class="sv" id="ces">Add</button></div></div></div>`}
 function rNoteModal(){const ex=S.blocks[S.noteBI]?.exercises[S.noteEI];return`<div class="mbg" id="mbg"><div class="mdl"><h2>Note: ${ex?.name||''}</h2><div class="mf"><textarea id="ntext">${ex?.note||''}</textarea></div><div class="mbtns"><button id="nc">Cancel</button><button class="sv" id="ns">Save</button></div></div></div>`}
-function rShareModal(){const url=genShareURL();return`<div class="mbg" id="mbg"><div class="mdl"><h2>📱 Sync to Mobile</h2><p style="font-size:12px;color:var(--t3);margin-bottom:12px">Your session is auto-saved to the server. Just open this site on your phone and it'll load the latest workout automatically.</p><p style="font-size:14px;color:var(--amb);font-weight:700;margin-bottom:12px;word-break:break-all">${location.origin}</p><button class="cpbtn" id="cpurl" style="margin-bottom:8px">📋 Copy Site URL</button><p style="font-size:11px;color:var(--t3);margin-top:12px">Or share via encoded URL (works offline):</p><div class="share-box" id="surl" style="margin-top:6px">${url}</div><button class="cpbtn" id="cpurl2" style="background:var(--cd);color:var(--t2);border:1px solid var(--bd);margin-top:6px">📋 Copy Workout URL</button><button class="mc" id="mclose">Close</button></div></div>`}
+function rShareModal(){const url=genShareURL();return`<div class="mbg" id="mbg"><div class="mdl"><h2>📱 Sync to Mobile</h2><p style="font-size:12px;color:var(--t3);margin-bottom:12px">Scan this QR code on your phone to open the workout timer:</p><div style="text-align:center;margin:16px 0"><canvas id="qrc" style="border-radius:8px;image-rendering:pixelated"></canvas></div><p style="font-size:12px;color:var(--amb);font-weight:700;text-align:center;margin-bottom:12px;word-break:break-all">${location.origin}</p><button class="cpbtn" id="cpurl" style="margin-bottom:8px">📋 Copy Site URL</button><p style="font-size:11px;color:var(--t3);margin-top:12px">Or share via encoded URL (works offline):</p><div class="share-box" id="surl" style="margin-top:6px">${url}</div><button class="cpbtn" id="cpurl2" style="background:var(--cd);color:var(--t2);border:1px solid var(--bd);margin-top:6px">📋 Copy Workout URL</button><button class="mc" id="mclose">Close</button></div></div>`}
 
 // ─── Mobile ───
 function rMobile(){
@@ -423,9 +432,9 @@ function rMobile(){
     let body='';if(open){
       const info=isSt?`${b.exPerStation||3} exercises · ${b.workTime}s each · ${b.rounds} rotations · ${b.restAfterRound}s rest`:`${b.exercises?.length||0} exercises · ${b.rounds} rounds · ${b.restAfterRound}s rest`;
       const exs=(b.exercises||[]).map((ex,ei)=>`<div class="mob-ex"><span class="mob-exn" style="background:${pcc(ex.cats)}20;color:${pcc(ex.cats)}">${ei+1}</span><span style="font-size:13px;flex:1">${ex.name}</span><span style="font-size:11px;color:var(--amb);font-family:var(--mo)">${ex.duration||b.workTime}s</span></div>`).join('');
-      body=`<div class="mob-bb"><div class="mob-bi">${info} · ${fmtd(blockDur(b))}</div>${exs}</div>`;
+      body=`<div class="mob-bb"><div class="mob-bi">${info} · ${fmtd(blockDur(b)+(b.restAfterBlock||0))}</div>${exs}</div>`;
     }
-    return`<div class="mob-b"><div class="mob-bh" data-mt="${bi}"><span class="mob-bn" style="background:${col}20;color:${col}">${bi+1}</span><span class="mob-bt">${b.name}</span><span class="mob-bm">${isSt?'🔄':'⚡'} ${fmtd(blockDur(b))}</span><span style="color:var(--t3)">${open?'▾':'▸'}</span></div>${body}</div>`;
+    return`<div class="mob-b"><div class="mob-bh" data-mt="${bi}"><span class="mob-bn" style="background:${col}20;color:${col}">${bi+1}</span><span class="mob-bt">${b.name}</span><span class="mob-bm">${isSt?'🔄':'⚡'} ${fmtd(blockDur(b)+(b.restAfterBlock||0))}</span><span style="color:var(--t3)">${open?'▾':'▸'}</span></div>${body}</div>`;
   }).join('');
   return`<div class="mob"><div class="mob-hd"><div class="tag">HIIT Pro</div><h1>Workout Timer</h1></div><div class="mob-s"><div class="mob-sn">${sess.n||S.sName}</div><div class="mob-sm">${blks.length} blocks · ${fmtd(td)}</div>${bhtml}</div><button class="mob-start" id="mstart">▶ START</button></div>`;
 }
@@ -558,6 +567,7 @@ function bModals(){
   document.getElementById('ns')?.addEventListener('click',()=>{const v=document.getElementById('ntext')?.value||'';if(S.blocks[S.noteBI]?.exercises[S.noteEI])S.blocks[S.noteBI].exercises[S.noteEI].note=v;S.modal=null;render()});
   document.getElementById('cpurl')?.addEventListener('click',()=>{navigator.clipboard.writeText(location.origin).then(()=>{document.getElementById('cpurl').textContent='✓ Copied!'});setTimeout(()=>{const b=document.getElementById('cpurl');if(b)b.textContent='📋 Copy Site URL'},2e3)});
   document.getElementById('cpurl2')?.addEventListener('click',()=>{const u=document.getElementById('surl')?.textContent;if(u){navigator.clipboard.writeText(u).then(()=>{document.getElementById('cpurl2').textContent='✓ Copied!'});setTimeout(()=>{const b=document.getElementById('cpurl2');if(b)b.textContent='📋 Copy Workout URL'},2e3)}});
+  const qrc=document.getElementById('qrc');if(qrc)drawQR(qrc,location.origin+location.pathname);
 }
 
 function bMobile(){
