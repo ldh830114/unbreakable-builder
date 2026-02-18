@@ -200,8 +200,9 @@ const DEF_LIB=[
 {name:"Shuttle Runs",cats:["sprints"]},{name:"Suicide Drills",cats:["sprints"]},{name:"Lateral Shuffles",cats:["sprints"]},{name:"Broad Jumps",cats:["sprints"]},{name:"Agility Ladder",cats:["sprints"]},{name:"Cone Drills",cats:["sprints"]},{name:"Sprint Intervals",cats:["sprints","cardio"]},{name:"High Knee Sprints",cats:["sprints","cardio"]},{name:"Bounding",cats:["sprints"]},{name:"T-Drill",cats:["sprints"]},{name:"Hill Sprints",cats:["sprints","cardio"]},{name:"Sled Push",cats:["sprints","resistance"]}
 ];
 let lib=JSON.parse(localStorage.getItem('hp2_lib'))||DEF_LIB.map(e=>({...e,note:''}));
-{const ns=new Set(lib.map(e=>e.name));DEF_LIB.forEach(e=>{if(!ns.has(e.name))lib.push({...e,note:''})});}
-function saveLib(){localStorage.setItem('hp2_lib',JSON.stringify(lib));fetch('/api/library',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lib)}).catch(()=>{})}
+let libDel=JSON.parse(localStorage.getItem('hp2_libdel'))||[];
+{const ns=new Set(lib.map(e=>e.name));const ds=new Set(libDel);DEF_LIB.forEach(e=>{if(!ns.has(e.name)&&!ds.has(e.name))lib.push({...e,note:''})});}
+function saveLib(){localStorage.setItem('hp2_lib',JSON.stringify(lib));localStorage.setItem('hp2_libdel',JSON.stringify(libDel));fetch('/api/library',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lib,del:libDel})}).catch(()=>{})}
 let tpls=JSON.parse(localStorage.getItem('hp2_tpls'))||[];
 function saveTpls(){localStorage.setItem('hp2_tpls',JSON.stringify(tpls));fetch('/api/templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(tpls)}).catch(()=>{})}
 function saveSession(){const d={n:S.sName,blocks:S.blocks};fetch('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).catch(()=>{})}
@@ -209,7 +210,12 @@ function saveSession(){const d={n:S.sName,blocks:S.blocks};fetch('/api/session',
 async function loadFromServer(){
   try{
     const[libR,tplR,sessR]=await Promise.all([fetch('/api/library').then(r=>r.json()).catch(()=>null),fetch('/api/templates').then(r=>r.json()).catch(()=>null),fetch('/api/session').then(r=>r.json()).catch(()=>null)]);
-    if(libR&&Array.isArray(libR)&&libR.length){lib=libR;const ns=new Set(lib.map(e=>e.name));DEF_LIB.forEach(e=>{if(!ns.has(e.name))lib.push({...e,note:''})});localStorage.setItem('hp2_lib',JSON.stringify(lib))}
+    if(libR){
+      if(Array.isArray(libR)){lib=libR}
+      else if(libR.lib){lib=libR.lib;libDel=libR.del||[]}
+      const ns=new Set(lib.map(e=>e.name));const ds=new Set(libDel);DEF_LIB.forEach(e=>{if(!ns.has(e.name)&&!ds.has(e.name))lib.push({...e,note:''})});
+      localStorage.setItem('hp2_lib',JSON.stringify(lib));localStorage.setItem('hp2_libdel',JSON.stringify(libDel));
+    }
     if(tplR&&Array.isArray(tplR)){tpls=tplR;localStorage.setItem('hp2_tpls',JSON.stringify(tpls))}
     if(sessR&&sessR.blocks){if(isMob){S.mobSession=sessR;S.blocks=sessR.blocks;S.sName=sessR.n||'Session'}else{S.blocks=sessR.blocks;S.sName=sessR.n||'Session'}}
     render();
@@ -262,7 +268,7 @@ function totalDur(blks){
 }
 
 // ═══ State ═══
-let S={screen:isMob?'mobile':'builder',sName:'New Session',blocks:[],
+let S={screen:isMob?'mobile':'builder',sName:'New Session',targetTime:45,blocks:[],
   libSearch:'',libFilter:'all',modal:null,noteBI:-1,noteEI:-1,
   ceData:{name:'',cats:[],note:''},
   phase:'',bI:0,eI:0,rI:0,tL:0,paused:false,
@@ -407,6 +413,11 @@ function rBuilder(){
   }).join('');
 
   const td=totalDur();
+  const targetSec=S.targetTime*60;
+  const remaining=targetSec-td;
+  const remAbs=Math.abs(remaining);
+  const remStr=remaining>=0?`${fmtd(remAbs)} spare`:`${fmtd(remAbs)} over`;
+  const remCol=remaining>=0?(remaining<120?'var(--amb)':'var(--grn)'):'var(--red)';
   let mdl='';
   if(S.modal==='templates')mdl=rTplModal();
   if(S.modal==='customEx')mdl=rCeModal();
@@ -415,7 +426,7 @@ function rBuilder(){
 
   return`<div class="appbar"><div class="logo"><div class="logo-i">U</div><h1>Unbreakable Workout</h1></div><div class="acts"><button class="ab" id="btn-tpl">📁 Templates</button><button class="ab" id="btn-save">💾 Save</button><button class="ab" id="btn-share">📱 Share</button><button class="ab pri" id="btn-start">▶ Start</button></div></div>
   <div class="builder"><div class="lib"><div class="lib-hd"><h2>Exercise Library</h2><input class="lib-sr" id="lsr" placeholder="Search..." value="${S.libSearch}"><div class="lib-fl">${filters}</div></div><div class="lib-ls" id="lls">${lhtml}</div><div class="lib-add" id="btn-ce">+ Custom Exercise</div></div>
-  <div class="ws"><div class="ws-hd"><input class="sn" id="sn" value="${S.sName}"><div class="ws-m"><span style="color:var(--t3)">Total: <strong style="color:var(--amb)">${fmtd(td)}</strong></span></div></div>
+  <div class="ws"><div class="ws-hd"><input class="sn" id="sn" value="${S.sName}"><div class="ws-m"><div class="chip">🎯<button data-tt="-1">−</button><span class="v">${S.targetTime}m</span><button data-tt="1">+</button></div><span style="color:var(--t3)">Built: <strong style="color:var(--amb)">${fmtd(td)}</strong></span><span style="color:${remCol};font-weight:700">${remStr}</span></div></div>
   <div class="ba" id="ba">${blksHtml}<div class="add-bc"><button class="add-bb" id="btn-ab">+ Block</button></div></div></div></div>${mdl}`;
 }
 
@@ -504,6 +515,7 @@ function bBuilder(){
   document.querySelectorAll('[data-bs]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const k=b.dataset.bs,bi=+b.dataset.bi,d=+b.dataset.d,c=bsC[k];S.blocks[bi][k]=Math.max(c.min,Math.min(c.max,(S.blocks[bi][k]||0)+d*c.step));render()}));
   document.querySelectorAll('[data-bn]').forEach(i=>{i.addEventListener('change',()=>{S.blocks[+i.dataset.bn].name=i.value});i.addEventListener('click',e=>e.stopPropagation())});
   document.getElementById('sn')?.addEventListener('change',e=>{S.sName=e.target.value});
+  document.querySelectorAll('[data-tt]').forEach(b=>b.addEventListener('click',()=>{S.targetTime=Math.max(5,Math.min(120,S.targetTime+(+b.dataset.tt)*5));render()}));
   document.querySelectorAll('[data-bt]').forEach(b=>b.addEventListener('click',()=>{S.blocks[+b.dataset.bt].type=b.dataset.v;render()}));
   document.querySelectorAll('[data-mv]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const i=+b.dataset.mv,n=i+(+b.dataset.d);if(n<0||n>=S.blocks.length)return;[S.blocks[i],S.blocks[n]]=[S.blocks[n],S.blocks[i]];render()}));
   document.querySelectorAll('[data-db]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();if(S.blocks.length<=1)return;S.blocks.splice(+b.dataset.db,1);render()}));
@@ -526,11 +538,11 @@ function bBuilder(){
       item.addEventListener('dragstart',ev=>{drag={type:'lib',data:item.dataset.lib};item.classList.add('dragging');ev.dataTransfer.effectAllowed='copy';ev.dataTransfer.setData('text/plain','')});
       item.addEventListener('dragend',()=>{drag={type:null,data:null};item.classList.remove('dragging');document.querySelectorAll('.bcol').forEach(el=>el.classList.remove('dov'));document.querySelectorAll('.bexs').forEach(el=>el.classList.remove('dt'))});
     });
-    document.querySelectorAll('[data-ldel]').forEach(b=>b.addEventListener('click',ev=>{ev.stopPropagation();ev.preventDefault();lib=lib.filter(l=>l.name!==b.dataset.ldel);saveLib();render()}));
+    document.querySelectorAll('[data-ldel]').forEach(b=>b.addEventListener('click',ev=>{ev.stopPropagation();ev.preventDefault();const dn=b.dataset.ldel;lib=lib.filter(l=>l.name!==dn);if(!libDel.includes(dn))libDel.push(dn);saveLib();render()}));
   });
   document.querySelectorAll('.lf').forEach(b=>b.addEventListener('click',()=>{S.libFilter=b.dataset.c;render()}));
   document.getElementById('btn-ce')?.addEventListener('click',()=>{S.modal='customEx';S.ceData={name:'',cats:[],note:''};render()});
-  document.querySelectorAll('[data-ldel]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();lib=lib.filter(l=>l.name!==b.dataset.ldel);saveLib();render()}));
+  document.querySelectorAll('[data-ldel]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();const dn=b.dataset.ldel;lib=lib.filter(l=>l.name!==dn);if(!libDel.includes(dn))libDel.push(dn);saveLib();render()}));
   // Top buttons
   document.getElementById('btn-tpl')?.addEventListener('click',()=>{S.modal='templates';render()});
   document.getElementById('btn-save')?.addEventListener('click',()=>{tpls.push({name:S.sName,blocks:JSON.parse(JSON.stringify(S.blocks))});saveTpls();saveSession();S.modal='templates';render()});
@@ -570,7 +582,7 @@ function bModals(){
   document.getElementById('ns')?.addEventListener('click',()=>{const v=document.getElementById('ntext')?.value||'';if(S.blocks[S.noteBI]?.exercises[S.noteEI])S.blocks[S.noteBI].exercises[S.noteEI].note=v;S.modal=null;render()});
   document.getElementById('cpurl')?.addEventListener('click',()=>{navigator.clipboard.writeText(location.origin).then(()=>{document.getElementById('cpurl').textContent='✓ Copied!'});setTimeout(()=>{const b=document.getElementById('cpurl');if(b)b.textContent='📋 Copy Site URL'},2e3)});
   document.getElementById('cpurl2')?.addEventListener('click',()=>{const u=document.getElementById('surl')?.textContent;if(u){navigator.clipboard.writeText(u).then(()=>{document.getElementById('cpurl2').textContent='✓ Copied!'});setTimeout(()=>{const b=document.getElementById('cpurl2');if(b)b.textContent='📋 Copy Workout URL'},2e3)}});
-  const qrc=document.getElementById('qrc');if(qrc)drawQR(qrc,location.origin+location.pathname);
+  const qrc=document.getElementById('qrc');if(qrc)drawQR(qrc,genShareURL());
 }
 
 function bMobile(){
